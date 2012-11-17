@@ -1,100 +1,77 @@
 var fs = require('fs'),
     PATH = require('path'),
-    http = require('http'),
     _ = require('underscore'),
-    URL = require('url'),
-    urlObject = {
-        protocol: 'http',
-        hostname: 'localhost'
-    };
+    rebuilder = require('./rebuilder'),
+    crawler = require('./crawler'),
+    EventEmitter = require('events').EventEmitter,
+    watchers = {};
 
-function collectFilesRecursively(path) {
-    var stat = fs.statSync(path),
-        files = [];
-    if (stat.isDirectory()) {
-        fs.readdirSync(path)
-            .map(correctPath, path)
-            .map(collectFilesRecursively)
-            .forEach(function (arr) {
-                files = files.concat(arr);
-            });
-    } else if (stat.isFile()) {
-        files.push(path);
+function watch(path, listener) {
+    listener = listener || new EventEmitter();
+    if (watchers[path]) {
+        watchers[path].close();
+        delete watchers[path];
     }
-    return files;
-}
-function correctPath(basename) {
-    return PATH.join(this.toString(), basename);
-}
-
-function _findAllTechFiles(path) {
-    var stat = fs.statSync(path),
-        files = [];
-    if (stat.isDirectory()) {
-        var currentDir = PATH.basename(path);
-        if (currentDir.match(/^blocks/)) {
-            files = files.concat(collectFilesRecursively(path));
-        } else {
-            fs.readdirSync(path)
-                .map(correctPath, path)
-                .map(_findAllTechFiles)
-                .forEach(function (arr) {
-                    files = files.concat(arr);
-                });
-        }
-    }
-    return files;
-}
-function dirsFilter(dir) {
-    return dir.match(/^blocks|^pages|^bundles/);
-}
-function findAllTechFiles(path) {
-    var stat = fs.statSync(path),
-        files = [];
-    if (stat.isDirectory()) {
-        fs.readdirSync(path)
-            .filter(dirsFilter)
-            .map(correctPath, path)
-            .map(_findAllTechFiles)
-            .forEach(function (arr) {
-                files = files.concat(arr);
-            });
-    }
-    return files;
-}
-
-function watchFileLater(file) {
-    rebuildPages();
-    setTimeout(function () {
-        watch(file);
-    }, 1000);
-}
-
-rebuildPages = _.debounce(function () {
-    http.get(URL.format(urlObject)).on('error', function (err) {
-        console.log(err);
-    });
-}, 100);
-
-function watch(file) {
     try {
-        var watcher = fs
-            .watch(file)
+        var watcher = watchers[path] = fs
+            .watch(path)
             .on('change', _.debounce(function () {
                 watcher.close();
-                watchFileLater(file);
+                listener.emit('change', path);
+                setTimeout(function () {
+                    watch(path, listener);
+                }, 1000);
             },
             500))
             .on('error', function (e) {
-                console.log(e);
+                listener.emit('error', e, path);
             });
     } catch (e) {
-        watchFileLater(file);
+        setTimeout(function () {
+            watch(path, listener);
+        }, 1000);
     }
+    return listener;
 }
-exports.watch = function (opts) {
-    urlObject.port = opts.port;
-    urlObject.hostname = opts.host || urlObject.hostname;
-    urlObject.pathname = opts.directory;
-    findAllTechFiles(opts.root).forEach(watch);
+
+var lastChangedFileDir;
+function watchFile(file) {
+    watch(file).on('change', function (file) {
+        lastChangedFileDir = PATH.dirname(file);
+        rebuilder.fileChangesCallback(file);
+    });
+}
+
+function watchDir(path) {
+    watch(path).on('change', function (path) {
+        if (path === lastChangedFileDir) {
+            lastChangedFileDir = undefined;
+            return;
+        }
+        var dirStructure = fs.readdirSync(path),
+            diff = _.difference(dirStructure, crawler.getDirStructure(path));
+        crawler.setDirStructure(path, dirStructure);
+        if (diff.length) {
+            diff.forEach(function (fileName) {
+                var fullFileName = PATH.join(path, fileName);
+                console.log(fullFileName);
+                fs.stat(fullFileName, function (e, stat) {
+                    if (e) {
+                        console.log(e);
+                        return;
+                    }
+                    if (stat.isFile()) {
+                        watchFile(fullFileName);
+                        rebuilder.fileAddedCallback();
+                    }
+                })
+            });
+        }
+    });
+}
+
+exports.watch = function (path) {
+    var filesAndDirs = crawler.findBlocksFilesAndDirs(path);
+    filesAndDirs.files.forEach(watchFile);
+    filesAndDirs.dirs.forEach(watchDir);
 };
