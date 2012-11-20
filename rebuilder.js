@@ -43,6 +43,8 @@ exports.fileChangesCallback = function (path) {
             break;
         case '.html.php':
             break;
+        case '.bemjson.js':
+            path = '';
         default:
             http.get(getBemServerUrl(path)).on('error', function (err) {
                 console.log(err);
@@ -50,8 +52,8 @@ exports.fileChangesCallback = function (path) {
     }
 };
 
-exports.fileAddedCallback = function () {
-    http.get(getBemServerUrl('')).on('error', function (err) {
+exports.fileAddedCallback = function (path) {
+    http.get(getBemServerUrl(path)).on('error', function (err) {
         console.log(err);
     });
 };

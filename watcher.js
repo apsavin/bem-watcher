@@ -6,15 +6,23 @@ var fs = require('fs'),
     EventEmitter = require('events').EventEmitter,
     watchers = {};
 
-function watch(path, listener) {
-    listener = listener || new EventEmitter();
+function delWatcher(path) {
     if (watchers[path]) {
         watchers[path].close();
         delete watchers[path];
     }
+}
+
+function getWatcher(path) {
+    watchers[path] = fs.watch(path);
+    return watchers[path];
+}
+
+function watch(path, listener) {
+    listener = listener || new EventEmitter();
+    delWatcher(path);
     try {
-        var watcher = watchers[path] = fs
-            .watch(path)
+        var watcher = getWatcher(path)
             .on('change', _.debounce(function () {
                 watcher.close();
                 listener.emit('change', path);
@@ -62,7 +70,7 @@ function watchDir(path) {
                     }
                     if (stat.isFile()) {
                         watchFile(fullFileName);
-                        rebuilder.fileAddedCallback();
+                        rebuilder.fileAddedCallback(fullFileName);
                     }
                 })
             });
@@ -70,8 +78,27 @@ function watchDir(path) {
     });
 }
 
-exports.watch = function (path) {
-    var filesAndDirs = crawler.findBlocksFilesAndDirs(path);
+function findBemjsonAndWatchIt(path, newDirStructure) {
+    var dirStructure = newDirStructure || fs.readdirSync(path),
+        bemjsonFile = dirStructure.filter(function (file) {
+            return file.match(/bemjson\.js$/);
+        })[0];
+    if (bemjsonFile) {
+        watchFile(PATH.join(path, bemjsonFile));
+    } else {
+        watch(path).on('change', function (path) {
+            var newDirStructure = fs.readdirSync(path),
+                diff = _.difference(newDirStructure, dirStructure);
+            if (diff.length) {
+                findBemjsonAndWatchIt(path, newDirStructure);
+            }
+        });
+    }
+}
+
+exports.watch = function (opts) {
+    var filesAndDirs = crawler.findBlocksFilesAndDirs(opts.root);
     filesAndDirs.files.forEach(watchFile);
     filesAndDirs.dirs.forEach(watchDir);
+    findBemjsonAndWatchIt(PATH.join(opts.root, opts.directory));
 };

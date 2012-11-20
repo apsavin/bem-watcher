@@ -41,6 +41,6 @@ require('coa').Cmd()
     .act(function (opts) {
         require('bem').api.server(opts);
         require('./rebuilder').setEnv(opts);
-        require('./watcher').watch(opts.root);
+        require('./watcher').watch(opts);
     })
     .run();
