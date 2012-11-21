@@ -34,28 +34,36 @@ function getTechSuffixes(path) {
 }
 
 exports.fileChangesCallback = function (path) {
-    switch (getTechSuffixes(path)[0]) {
+    var suffix = getTechSuffixes(path)[0];
+    switch (suffix) {
         case '.js':
         case '.css':
         case '.ie.css':
             console.log('updated ' + path);
             borschik(getBorschikParams(path));
             break;
+        default:
+            processPathThrowBemServer(path, suffix);
+    }
+};
+
+function processPathThrowBemServer(path, suffix) {
+    suffix = suffix || getTechSuffixes(path)[0];
+    switch (suffix) {
         case '.html.php':
             break;
         case '.bemjson.js':
+        case '.deps.js':
             path = '';
         default:
             http.get(getBemServerUrl(path)).on('error', function (err) {
                 console.log(err);
             });
     }
-};
+}
 
 exports.fileAddedCallback = function (path) {
-    http.get(getBemServerUrl(path)).on('error', function (err) {
-        console.log(err);
-    });
+    processPathThrowBemServer(path);
 };
 
 exports.setEnv = function (opts) {
