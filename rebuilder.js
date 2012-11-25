@@ -55,6 +55,8 @@ function processPathThrowBemServer(path, suffix) {
         case '.bemjson.js':
         case '.deps.js':
             path = '';
+        case '.bemhtml':
+            path = path.replace(suffix, '.html');
         default:
             http.get(getBemServerUrl(path)).on('error', function (err) {
                 console.log(err);
