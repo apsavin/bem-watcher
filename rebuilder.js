@@ -55,6 +55,7 @@ function processPathThrowBemServer(path, suffix) {
         case '.html.php':
             break;
         case '.bemjson.js':
+        case '.bemdecl.js':
         case '.deps.js':
             path = '';
         case '.bemhtml':

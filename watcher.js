@@ -78,19 +78,21 @@ function watchDir(path) {
     });
 }
 
-function findBemjsonAndWatchIt(path, newDirStructure) {
+function findBuildTechFileAndWatchIt(path, newDirStructure) {
     var dirStructure = newDirStructure || fs.readdirSync(path),
-        bemjsonFile = dirStructure.filter(function (file) {
+        buildTechFile = _(dirStructure).find(function (file) {
             return file.match(/bemjson\.js$/);
-        })[0];
-    if (bemjsonFile) {
-        watchFile(PATH.join(path, bemjsonFile));
+        }) || _(dirStructure).find(function (file) {
+            return file.match(/bemdecl\.js$/);
+        });
+    if (buildTechFile) {
+        watchFile(PATH.join(path, buildTechFile));
     } else {
         watch(path).on('change', function (path) {
             var newDirStructure = fs.readdirSync(path),
                 diff = _.difference(newDirStructure, dirStructure);
             if (diff.length) {
-                findBemjsonAndWatchIt(path, newDirStructure);
+                findBuildTechFileAndWatchIt(path, newDirStructure);
             }
         });
     }
@@ -100,5 +102,5 @@ exports.watch = function (opts) {
     var filesAndDirs = crawler.findBlocksFilesAndDirs(opts.root);
     filesAndDirs.files.forEach(watchFile);
     filesAndDirs.dirs.forEach(watchDir);
-    findBemjsonAndWatchIt(PATH.join(opts.root, opts.directory));
+    findBuildTechFileAndWatchIt(PATH.join(opts.root, opts.directory));
 };
