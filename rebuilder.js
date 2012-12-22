@@ -30,7 +30,7 @@ function getBorschikParams(file) {
 }
 
 function getTechSuffixes(path) {
-    return path.match(/\.(.*)/);
+    return path.match(/\.(.*)/) || [''];
 }
 
 exports.fileChangesCallback = function (path) {
@@ -41,6 +41,8 @@ exports.fileChangesCallback = function (path) {
         case '.ie.css':
             console.log('updated ' + path);
             borschik(getBorschikParams(path));
+            break;
+        case '':
             break;
         default:
             processPathThrowBemServer(path, suffix);
