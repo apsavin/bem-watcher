@@ -52,14 +52,12 @@ exports.fileChangesCallback = function (path) {
 function processPathThrowBemServer(path, suffix) {
     suffix = suffix || getTechSuffixes(path)[0];
     switch (suffix) {
-        case '.html.php':
+        case '.html.bemtwig':
             break;
-        case '.bemjson.js':
         case '.bemdecl.js':
         case '.deps.js':
-            path = '';
         case '.bemhtml':
-            path = path.replace(suffix, '.html');
+            path = '';
         default:
             http.get(getBemServerUrl(path)).on('error', function (err) {
                 console.log(err);
