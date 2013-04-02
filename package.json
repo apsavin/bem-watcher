@@ -1,9 +1,9 @@
 {
     "author": "asavin",
     "name": "bem-watcher",
-    "version": "0.0.4",
+    "version": "0.0.5",
     "engines": {
-        "node": "0.8 | 0.9"
+        "node": "0.8 | 0.9 | 0.10"
     },
     "dependencies": {
         "coa": "~0.3.5",
